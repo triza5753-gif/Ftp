@@ -1,0 +1,243 @@
+const MUSAFA_CONFIG = {
+  scriptUrl: 'https://script.google.com/macros/s/AKfycbxGYhRMlJmexFQ6uxvyRQJcJFzbw5oSdivZQ1lxmbL0oWlF7hKA-mttWo28ch1YS6lA8A/exec',
+  targetEmail: 'fahriztomi@gmail.com',
+  category: 'Pesan'
+};
+
+const pwaState = {
+  deferredPrompt: null,
+  triggeredAlarms: new Set(),
+  clockTimer: null,
+  alarmCheckTimer: null
+};
+
+function registerServiceWorker() {
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch((err) => {
+        console.warn('Registrasi Service Worker gagal:', err);
+      });
+    });
+  }
+}
+
+function bindInstallPrompt() {
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    pwaState.deferredPrompt = e;
+    const badge = document.getElementById('pwa-install-hint');
+    if (badge) badge.classList.remove('hidden');
+  });
+
+  window.addEventListener('appinstalled', () => {
+    pwaState.deferredPrompt = null;
+    updatePWAStatus('Aplikasi PWA Terpasang');
+  });
+}
+
+function triggerInstallPWA() {
+  if (pwaState.deferredPrompt) {
+    pwaState.deferredPrompt.prompt();
+    pwaState.deferredPrompt.userChoice.finally(() => {
+      pwaState.deferredPrompt = null;
+    });
+    return;
+  }
+
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  if (isIOS) {
+    alert('Di iPhone/iPad (Safari):\n1. Ketuk ikon Share.\n2. Pilih "Add to Home Screen".');
+  } else {
+    alert('Untuk menginstal PWA:\nBuka menu browser (titik tiga di pojok kanan atas) lalu pilih "Install app" atau "Add to Home screen".');
+  }
+}
+
+function openScriptApp() {
+  window.open(MUSAFA_CONFIG.scriptUrl, '_blank', 'noopener,noreferrer');
+}
+
+function toggleFullscreenPWA() {
+  const el = document.documentElement;
+  if (!document.fullscreenElement && el.requestFullscreen) {
+    el.requestFullscreen().catch(() => {});
+  } else if (document.fullscreenElement && document.exitFullscreen) {
+    document.exitFullscreen().catch(() => {});
+  }
+}
+
+function openControlPanel() {
+  const modal = document.getElementById('pwa-control-modal');
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeControlPanel() {
+  const modal = document.getElementById('pwa-control-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function setShellFont(scale) {
+  document.documentElement.style.setProperty('--font-scale', scale);
+}
+
+function updatePWAStatus(text) {
+  const el = document.getElementById('pwa-status-text');
+  if (el) el.innerText = text;
+}
+
+function requestNotificationPermission(showFeedback = false) {
+  if (!('Notification' in window)) {
+    updatePWAStatus('Alarm Suara & Popup PWA Aktif');
+    if (showFeedback) {
+      alert('Browser/perangkat ini tidak mendukung Web Notification API; alarm suara & popup tetap aktif.');
+    }
+    return;
+  }
+
+  if (Notification.permission === 'granted') {
+    updatePWAStatus('Notifikasi & Alarm PWA Aktif');
+    if (showFeedback) {
+      alert('Izin notifikasi perangkat sudah aktif untuk MUSAFA Mobile.');
+    }
+    return;
+  }
+
+  Notification.requestPermission()
+    .then((perm) => {
+      if (perm === 'granted') {
+        updatePWAStatus('Notifikasi & Alarm PWA Aktif');
+        if (showFeedback) alert('Izin notifikasi perangkat berhasil diaktifkan!');
+      } else {
+        updatePWAStatus('Alarm Lokal PWA Aktif');
+        if (showFeedback) {
+          alert('Izin notifikasi sistem belum diberikan; alarm suara & popup tetap berjalan.');
+        }
+      }
+    })
+    .catch(() => {
+      updatePWAStatus('Alarm Lokal PWA Aktif');
+    });
+}
+
+function playAlarmSound() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const notes = [880, 1174.66, 880, 1174.66];
+    notes.forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + idx * 0.22);
+      gain.gain.setValueAtTime(0.16, ctx.currentTime + idx * 0.22);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + idx * 0.22 + 0.18);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(ctx.currentTime + idx * 0.22);
+      osc.stop(ctx.currentTime + idx * 0.22 + 0.2);
+    });
+  } catch (e) {
+    console.warn('Pemutaran nada alarm terhambat:', e);
+  }
+}
+
+function triggerPWAAlarm(message, uniqueKey = null) {
+  if (uniqueKey) {
+    if (pwaState.triggeredAlarms.has(uniqueKey)) return;
+    pwaState.triggeredAlarms.add(uniqueKey);
+  }
+
+  playAlarmSound();
+
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try {
+      new Notification(`MUSAFA Mobile [${MUSAFA_CONFIG.category}]`, {
+        body: message,
+        icon: 'https://drive.google.com/thumbnail?id=1v9XLw_NjWKP9zdtIgREkPYmgakhKMq_n&sz=w200',
+        tag: 'musafa-pwa-alarm'
+      });
+    } catch (e) {}
+  }
+
+  if ('speechSynthesis' in window) {
+    try {
+      const utter = new SpeechSynthesisUtterance(message);
+      utter.lang = 'id-ID';
+      window.speechSynthesis.speak(utter);
+    } catch (e) {}
+  }
+
+  alert(`🔔 ALARM MUSAFA MOBILE [${MUSAFA_CONFIG.category}]:\n${message}`);
+}
+
+function testAlarmNotification() {
+  triggerPWAAlarm('Tes alarm notifikasi PWA MUSAFA Mobile berhasil dijalankan. Sistem pengingat siap.');
+}
+
+function testEmailNotification() {
+  const nowStr = new Date().toLocaleString('id-ID');
+  const testUrl =
+    `${MUSAFA_CONFIG.scriptUrl}` +
+    `?action=testEmail` +
+    `&email=${encodeURIComponent(MUSAFA_CONFIG.targetEmail)}` +
+    `&category=${encodeURIComponent(MUSAFA_CONFIG.category)}` +
+    `&t=${Date.now()}`;
+
+  fetch(testUrl, { method: 'GET', mode: 'no-cors' })
+    .then(() => {
+      alert(
+        `✅ Permintaan Tes Email dikirim!\n` +
+        `Tujuan   : ${MUSAFA_CONFIG.targetEmail}\n` +
+        `Kategori : ${MUSAFA_CONFIG.category}\n` +
+        `Waktu    : ${nowStr}`
+      );
+    })
+    .catch(() => {
+      alert(
+        `⚠️ Tidak dapat menghubungi endpoint secara langsung.\n` +
+        `Buka aplikasi utama MUSAFA Mobile lalu gunakan tombol Tes Email ke ${MUSAFA_CONFIG.targetEmail} (Kategori: ${MUSAFA_CONFIG.category}).`
+      );
+    });
+}
+
+function startPWAClock() {
+  const clockEl = document.getElementById('pwa-live-clock');
+  if (!clockEl) return;
+
+  const updateClock = () => {
+    const now = new Date();
+    clockEl.innerText = now.toLocaleString('id-ID', {
+      weekday: 'long',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    }) + ' WIB';
+  };
+
+  updateClock();
+  if (pwaState.clockTimer) clearInterval(pwaState.clockTimer);
+  pwaState.clockTimer = setInterval(updateClock, 1000);
+}
+
+function startAutomaticAlarmMonitor() {
+  if (pwaState.alarmCheckTimer) clearInterval(pwaState.alarmCheckTimer);
+
+  pwaState.alarmCheckTimer = setInterval(() => {
+    if (document.visibilityState === 'visible') {
+      requestNotificationPermission(false);
+    }
+  }, 60000);
+}
+
+function initMusafaPWA() {
+  registerServiceWorker();
+  bindInstallPrompt();
+  startPWAClock();
+  startAutomaticAlarmMonitor();
+  requestNotificationPermission(false);
+}
+
+document.addEventListener('DOMContentLoaded', initMusafaPWA);
