@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1e3a8a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="MUSAFA Mobile">
+  <link rel="apple-touch-icon" href="https://drive.google.com/thumbnail?id=1v9XLw_NjWKP9zdtIgREkPYmgakhKMq_n&sz=w200">
+  <link rel="manifest" href="./manifest.json">
+  <title>MUSAFA Mobile - PWA</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --font-scale: 1;
+    }
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      font-size: calc(14px * var(--font-scale));
+      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+    .pwa-shell {
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+      width: 100vw;
+      overflow: hidden;
+    }
+    .app-frame {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100">
+
+  <div class="pwa-shell">
+    <!-- Top Bar Kontrol PWA -->
+    <header class="bg-blue-950 border-b border-blue-800/60 px-3 py-2 flex items-center justify-between gap-2 shrink-0 z-30">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <img src="https://drive.google.com/thumbnail?id=1v9XLw_NjWKP9zdtIgREkPYmgakhKMq_n&sz=w200"
+             alt="MUSAFA Logo" class="w-8 h-8 rounded-lg bg-white p-0.5 object-contain shrink-0">
+        <div class="truncate">
+          <p class="text-xs sm:text-sm font-extrabold tracking-wide text-white truncate">MUSAFA Mobile PWA</p>
+          <p id="pwa-status-text" class="text-[10px] text-emerald-300 font-semibold truncate">Notifikasi & Alarm PWA Aktif</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button type="button" onclick="triggerInstallPWA()" id="btn-install-pwa"
+                class="px-2.5 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white text-[11px] font-bold">
+          <i class="fas fa-download mr-1"></i>Install
+        </button>
+        <button type="button" onclick="openControlPanel()"
+                class="px-2.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-[11px] font-bold">
+          <i class="fas fa-bell mr-1"></i>Alarm & Email
+        </button>
+        <button type="button" onclick="reloadAppFrame()" title="Muat Ulang"
+                class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs">
+          <i class="fas fa-sync-alt"></i>
+        </button>
+        <button type="button" onclick="toggleFullscreenPWA()" title="Layar Penuh"
+                class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs">
+          <i class="fas fa-expand"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Aplikasi Utama Google Apps Script -->
+    <iframe id="musafa-frame"
+            src="https://script.google.com/macros/s/AKfycbxGYhRMlJmexFQ6uxvyRQJcJFzbw5oSdivZQ1lxmbL0oWlF7hKA-mttWo28ch1YS6lA8A/exec"
+            class="app-frame bg-white"
+            allow="clipboard-read; clipboard-write; fullscreen"></iframe>
+  </div>
+
+  <!-- Modal Kontrol Alarm, Notifikasi & Tes Email -->
+  <div id="pwa-control-modal" class="hidden fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-700 pb-3">
+        <h2 class="text-sm font-extrabold uppercase tracking-wide text-amber-300">
+          <i class="fas fa-bell mr-1.5"></i>Kontrol Alarm & Notifikasi PWA
+        </h2>
+        <button type="button" onclick="closeControlPanel()" class="text-slate-400 hover:text-white">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <p class="text-xs text-slate-300 leading-relaxed">
+        Email otomatis diarahkan ke <strong class="text-white">fahriztomi@gmail.com</strong> dengan kategori <strong class="text-amber-300">Pesan</strong>. PWA juga memutar suara alarm & notifikasi perangkat secara otomatis.
+      </p>
+
+      <div class="grid grid-cols-2 gap-2.5">
+        <button type="button" onclick="testEmailNotification()"
+                class="py-2.5 px-3 rounded-xl bg-blue-700 hover:bg-blue-600 text-white font-bold text-xs shadow">
+          <i class="fas fa-paper-plane mr-1.5"></i>Tes Email
+        </button>
+        <button type="button" onclick="testAlarmNotification()"
+                class="py-2.5 px-3 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow">
+          <i class="fas fa-volume-up mr-1.5"></i>Tes Alarm
+        </button>
+      </div>
+
+      <button type="button" onclick="requestNotificationPermission(true)"
+              class="w-full py-2 px-3 rounded-xl bg-slate-700 hover:bg-slate-600 text-emerald-300 font-bold text-xs">
+        <i class="fas fa-check-circle mr-1.5"></i>Aktifkan Izin Notifikasi Perangkat
+      </button>
+
+      <div class="flex items-center justify-between pt-2 border-t border-slate-700 text-xs">
+        <span class="font-bold text-slate-300">Ukuran Font Shell:</span>
+        <div class="flex gap-1.5">
+          <button type="button" onclick="setShellFont(0.9)" class="px-2.5 py-1 rounded bg-slate-700 hover:bg-slate-600 font-bold">Kecil</button>
+          <button type="button" onclick="setShellFont(1)" class="px-2.5 py-1 rounded bg-slate-700 hover:bg-slate-600 font-bold">Sedang</button>
+          <button type="button" onclick="setShellFont(1.15)" class="px-2.5 py-1 rounded bg-slate-700 hover:bg-slate-600 font-bold">Besar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SCRIPT_EXEC_URL = 'https://script.google.com/macros/s/AKfycbxGYhRMlJmexFQ6uxvyRQJcJFzbw5oSdivZQ1lxmbL0oWlF7hKA-mttWo28ch1YS6lA8A/exec';
+    const TARGET_EMAIL = 'fahriztomi@gmail.com';
+    let deferredInstallPrompt = null;
+    const triggeredKeys = new Set();
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      });
+    }
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredInstallPrompt = e;
+    });
+
+    function triggerInstallPWA() {
+      if (deferredInstallPrompt) {
+        deferredInstallPrompt.prompt();
+        deferredInstallPrompt.userChoice.finally(() => {
+          deferredInstallPrompt = null;
+        });
+        return;
+      }
+      const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+      if (isIOS) {
+        alert('Di iPhone/iPad (Safari): ketuk ikon Share lalu pilih "Add to Home Screen".');
+      } else {
+        alert('Untuk menginstal PWA: buka menu browser (titik tiga) lalu pilih "Install app" atau "Add to Home screen".');
+      }
+    }
+
+    function reloadAppFrame() {
+      document.getElementById('musafa-frame').src = SCRIPT_EXEC_URL;
+    }
+
+    function toggleFullscreenPWA() {
+      const el = document.documentElement;
+      if (!document.fullscreenElement && el.requestFullscreen) {
+        el.requestFullscreen().catch(() => {});
+      } else if (document.fullscreenElement && document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
+    }
+
+    function openControlPanel() {
+      document.getElementById('pwa-control-modal').classList.remove('hidden');
+    }
+
+    function closeControlPanel() {
+      document.getElementById('pwa-control-modal').classList.add('hidden');
+    }
+
+    function setShellFont(scale) {
+      document.documentElement.style.setProperty('--font-scale', scale);
+    }
+
+    function requestNotificationPermission(showFeedback = false) {
+      const statusEl = document.getElementById('pwa-status-text');
+      if (!('Notification' in window)) {
+        if (statusEl) statusEl.innerText = 'Alarm Suara PWA Aktif';
+        if (showFeedback) alert('Perangkat ini menggunakan alarm suara & popup dalam aplikasi.');
+        return;
+      }
+      if (Notification.permission === 'granted') {
+        if (statusEl) statusEl.innerText = 'Notifikasi & Alarm PWA Aktif';
+        if (showFeedback) alert('Izin notifikasi perangkat sudah aktif.');
+        return;
+      }
+      Notification.requestPermission().then((perm) => {
+        if (perm === 'granted') {
+          if (statusEl) statusEl.innerText = 'Notifikasi & Alarm PWA Aktif';
+          if (showFeedback) alert('Notifikasi perangkat berhasil diaktifkan!');
+        } else {
+          if (statusEl) statusEl.innerText = 'Alarm Lokal PWA Aktif';
+          if (showFeedback) alert('Izin notifikasi sistem belum aktif; alarm suara tetap berjalan.');
+        }
+      });
+    }
+
+    function playAlarmSound() {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const freqs = [880, 1174.66, 880, 1174.66];
+        freqs.forEach((f, i) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(f, ctx.currentTime + i * 0.22);
+          gain.gain.setValueAtTime(0.16, ctx.currentTime + i * 0.22);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.22 + 0.18);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(ctx.currentTime + i * 0.22);
+          osc.stop(ctx.currentTime + i * 0.22 + 0.2);
+        });
+      } catch (e) {}
+    }
+
+    function triggerPWAAlarm(msg) {
+      playAlarmSound();
+      if ('Notification' in window && Notification.permission === 'granted') {
+        try {
+          new Notification('MUSAFA Mobile [Pesan]', {
+            body: msg,
+            icon: 'https://drive.google.com/thumbnail?id=1v9XLw_NjWKP9zdtIgREkPYmgakhKMq_n&sz=w200'
+          });
+        } catch (e) {}
+      }
+      if ('speechSynthesis' in window) {
+        try {
+          const utter = new SpeechSynthesisUtterance(msg);
+          utter.lang = 'id-ID';
+          window.speechSynthesis.speak(utter);
+        } catch (e) {}
+      }
+      alert('🔔 ALARM MUSAFA MOBILE:\n' + msg);
+    }
+
+    function testAlarmNotification() {
+      triggerPWAAlarm('Tes alarm notifikasi PWA MUSAFA Mobile berhasil dijalankan.');
+    }
+
+    function testEmailNotification() {
+      // Memicu endpoint Apps Script jika tersedia, atau membuka antarmuka utama untuk eksekusi tes email
+      const nowStr = new Date().toLocaleString('id-ID');
+      const frame = document.getElementById('musafa-frame');
+      if (frame && frame.contentWindow) {
+        try {
+          frame.contentWindow.postMessage({
+            type: 'MUSAFA_TEST_EMAIL',
+            email: TARGET_EMAIL,
+            category: 'Pesan',
+            time: nowStr
+          }, '*');
+        } catch (e) {}
+      }
+
+      fetch(SCRIPT_EXEC_URL + '?action=testEmail&email=' + encodeURIComponent(TARGET_EMAIL) + '&category=Pesan', {
+        method: 'GET',
+        mode: 'no-cors'
+      }).then(() => {
+        alert(
+          '✅ Permintaan Tes Email dikirim ke ' + TARGET_EMAIL + '\n' +
+          'Kategori : Pesan\n' +
+          'Waktu    : ' + nowStr + '\n\n' +
+          'Pastikan di Code.gs fungsi sendTestEmailNotification() dan doGet() juga sudah dipasang.'
+        );
+      }).catch(() => {
+        alert('❌ Gagal menghubungi layanan script.');
+      });
+    }
+
+    // Dengarkan pesan alarm otomatis dari iframe Apps Script (jika di-postMessage)
+    window.addEventListener('message', (event) => {
+      const payload = event.data;
+      if (!payload || typeof payload !== 'object') return;
+      if (payload.type === 'MUSAFA_ALARM' && payload.message) {
+        const key = payload.key || payload.message;
+        if (!triggeredKeys.has(key)) {
+          triggeredKeys.add(key);
+          triggerPWAAlarm(payload.message);
+        }
+      }
+    });
+
+    // Pemantauan berkala di sisi PWA
+    setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        requestNotificationPermission(false);
+      }
+    }, 60000);
+
+    window.addEventListener('load', () => {
+      requestNotificationPermission(false);
+    });
+  </script>
+</body>
+</html>
